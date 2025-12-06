@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Répartition des études</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Manifest PWA -->
+<link rel="manifest" href="manifest.json">
+
+<!-- Icône navigateur -->
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+<meta name="theme-color" content="#0d6efd">
+
+<!-- Script PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+    body { font-family: Arial; padding: 10px; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { border: 1px solid #666; padding: 5px; }
+    .result { margin-top: 15px; }
+</style>
+
+</head>
+
+<body>
+
+<h2>Répartition des études</h2>
+
+<table border="1" id="tableClasses"></table>
+
+<br>
+
+<label>Nombre d'études :
+<select id="studies" onchange="refreshForceSelectors()">
+    <option>1</option>
+    <option>2</option>
+    <option>3</option>
+    <option>4</option>
+    <option selected>5</option>
+</select>
+</label>
+
+<br><br>
+
+<button onclick="compute()">Calculer</button>
+<button onclick="exportPDF()">Exporter PDF</button>
+
+<div id="result" class="result"></div>
+
+<script>
+// === LISTE DES CLASSES ===
+// Réutilise exactement TA demande
+const CLASSES = [
+    "GS/CP",
+    "CP1",
+    "CP2",
+    "CE1A",
+    "CE1B",
+    "CE2",
+    "CE2/CM1",
+    "CM1",
+    "CM2"
+];
+
+let lastStudies = [];
+
+function buildTable(){
+    const table = document.getElementById("tableClasses");
+    table.innerHTML =
+        `<tr><th>Classe</th><th>Effectif</th><th>Forcer étude</th></tr>`;
+
+    CLASSES.forEach((name,i)=>{
+        table.innerHTML += `
+            <tr>
+                <td>${name}</td>
+                <td><input type="number" id="nbr${i}" style="width:60px;"></td>
+                <td>
+                    <select id="force${i}">
+                        <option value="auto">auto</option>
+                        <option value="1"> étude 1</option>
+                        <option value="2"> étude 2</option>
+                        <option value="3"> étude 3</option>
+                        <option value="4"> étude 4</option>
+                        <option value="5"> étude 5</option>
+                    </select>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+function refreshForceSelectors(){
+    // handled just by showing up to 5 – nothing to do more
+}
+
+function compute() {
+    const count = parseInt(document.getElementById("studies").value);
+    let groups = [];
+    for(let i=0;i<count;i++){ groups.push({ total:0, list:[] }); }
+
+    CLASSES.forEach((name,i)=>{
+        const n = parseInt(document.getElementById("nbr"+i).value || 0);
+        if(n<=0) return;
+
+        const forced = document.getElementById("force"+i).value;
+
+        if(forced!=="auto"){
+            const idx = parseInt(forced)-1;
+            groups[idx].total += n;
+            groups[idx].list.push(`${name} (${n})`);
+        }
+    });
+
+    CLASSES.forEach((name,i)=>{
+        const n = parseInt(document.getElementById("nbr"+i).value || 0);
+        const forced = document.getElementById("force"+i).value;
+        if(n<=0 || forced!=="auto") return;
+
+        let best = groups[0];
+        groups.forEach(g => { if(g.total < best.total) best = g; });
+        best.total += n;
+        best.list.push(`${name} (${n})`);
+    });
+
+    lastStudies = groups;
+    display();
+}
+
+function display(){
+    const div = document.getElementById("result");
+    let html = "<h3>Résultat :</h3>";
+    lastStudies.forEach((g,i)=>{
+        html += `<p><b>Étude ${i+1} (${g.total}) :</b> ${g.list.join(", ")}</p>`;
+    });
+    div.innerHTML = html;
+}
+
+function exportPDF(){
+    compute();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.text("Répartition études",10,10);
+    let y=25;
+    lastStudies.forEach((g,i)=>{
+        doc.text(`Étude ${i+1} — ${g.total} élèves`,10,y);
+        y+=6;
+        g.list.forEach(line=>{
+            doc.text(` - ${line}`, 14, y);
+            y+=6;
+        });
+        y+=4;
+    });
+    doc.save("repartition.pdf");
+}
+
+buildTable();
+</script>
+
+<!-- Service worker registration -->
+<script>
+if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("sw.js");
+}
+</script>
+
+</body>
+</html>
