@@ -5,164 +5,299 @@
 <title>Répartition des études</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Manifest PWA -->
+<!-- PWA integration (NO CHANGE to layout) -->
 <link rel="manifest" href="manifest.json">
-
-<!-- Icône navigateur -->
-<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="icon" type="image/png" href="icons/icon-192.png" />
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-
 <meta name="theme-color" content="#0d6efd">
 
-<!-- Script PDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
-    body { font-family: Arial; padding: 10px; }
-    table { border-collapse: collapse; width: 100%; }
-    td, th { border: 1px solid #666; padding: 5px; }
-    .result { margin-top: 15px; }
-</style>
+body {
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    padding: 15px;
+    background: linear-gradient(160deg, #f0f4ff, #ffffff);
+    color: #333;
+}
 
+h1 {
+    text-align: center;
+    font-size: 36px;
+    margin-bottom: 5px;
+    color: #1a237e;
+    font-weight: 900;
+    letter-spacing: 1px;
+}
+
+#date {
+    text-align: center;
+    font-size: 18px;
+    color: #0d47a1;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+.panel {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+}
+
+input { width: 70px; padding: 6px; font-size: 14px; }
+select { padding: 6px; font-size: 14px; }
+
+.class-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.class-row label {
+    width: 40%;
+    min-width: 120px;
+    margin-bottom: 4px;
+}
+
+.class-row input {
+    margin-right: 10px;
+}
+
+.result {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+
+.study-block {
+    padding: 16px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    color: white;
+    font-weight: 600;
+    font-size: 15px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+    word-wrap: break-word;
+}
+
+.green { background: #8bc34a; }
+.orange { background: #fb8c00; }
+.red { background: #e53935; }
+
+button {
+    padding: 12px 20px;
+    background: #1e88e5;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    margin: 5px 0;
+    width: 100%;
+    transition: 0.2s;
+}
+
+button:hover { background: #1565c0; }
+
+@media (min-width: 500px) {
+    .class-row label { width: 180px; }
+    button { width: auto; margin-right: 10px; }
+}
+</style>
 </head>
 
 <body>
 
-<h2>Répartition des études</h2>
+<h1>Répartition des études</h1>
+<div id="date"></div>
 
-<table border="1" id="tableClasses"></table>
+<script>
+function updateDate() {
+    const now = new Date();
+    const options = { weekday:"long", year:"numeric", month:"long", day:"numeric" };
+    const formatted = now.toLocaleDateString("fr-FR", options);
+    document.getElementById("date").textContent = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+updateDate();
+</script>
 
-<br>
+<div class="panel">
 
-<label>Nombre d'études :
-<select id="studies" onchange="refreshForceSelectors()">
-    <option>1</option>
-    <option>2</option>
-    <option>3</option>
-    <option>4</option>
-    <option selected>5</option>
-</select>
-</label>
+    <label><strong>Nombre d'études :</strong>
+        <select id="studies" onchange="refreshStudySelectors(); compute();">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+        </select>
+    </label>
 
-<br><br>
+    <p><strong>Renseignez les effectifs et choisissez si une classe doit être obligatoirement placée dans une étude.</strong></p>
 
-<button onclick="compute()">Calculer</button>
-<button onclick="exportPDF()">Exporter PDF</button>
+    <div id="classes"></div>
+
+    <br>
+
+    <button onclick="compute()">Générer la répartition</button>
+    <button onclick="exportPDF()">Exporter en PDF</button>
+
+</div>
 
 <div id="result" class="result"></div>
 
 <script>
-// === LISTE DES CLASSES ===
-// Réutilise exactement TA demande
-const CLASSES = [
-    "GS/CP",
-    "CP1",
-    "CP2",
-    "CE1A",
-    "CE1B",
-    "CE2",
-    "CE2/CM1",
-    "CM1",
-    "CM2"
+/* === IDENTIQUE À TA VERSION FINALE (fonctions complètes) === */
+
+const classNames = [
+    "GS/CP","CP1","CP2","CE1A","CE1B","CE2","CE2/CM1","CM1","CM2"
 ];
 
-let lastStudies = [];
+// Build class rows with inputs and force selects
+const classesDiv = document.getElementById("classes");
+classNames.forEach((name,i)=>{
+    // create row element
+    const row = document.createElement('div');
+    row.className = 'class-row';
+    const label = document.createElement('label');
+    label.textContent = name;
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.id = 'class' + i;
+    input.min = 0;
+    input.value = 0;
+    input.style.marginRight = '10px';
+    const select = document.createElement('select');
+    select.id = 'force' + i;
+    row.appendChild(label);
+    row.appendChild(input);
+    row.appendChild(select);
+    classesDiv.appendChild(row);
+});
 
-function buildTable(){
-    const table = document.getElementById("tableClasses");
-    table.innerHTML =
-        `<tr><th>Classe</th><th>Effectif</th><th>Forcer étude</th></tr>`;
-
-    CLASSES.forEach((name,i)=>{
-        table.innerHTML += `
-            <tr>
-                <td>${name}</td>
-                <td><input type="number" id="nbr${i}" style="width:60px;"></td>
-                <td>
-                    <select id="force${i}">
-                        <option value="auto">auto</option>
-                        <option value="1"> étude 1</option>
-                        <option value="2"> étude 2</option>
-                        <option value="3"> étude 3</option>
-                        <option value="4"> étude 4</option>
-                        <option value="5"> étude 5</option>
-                    </select>
-                </td>
-            </tr>
-        `;
+function refreshStudySelectors() {
+    const studyCount = parseInt(document.getElementById("studies").value);
+    classNames.forEach((_, i) => {
+        const select = document.getElementById("force" + i);
+        // reset options
+        select.innerHTML = '<option value="auto">Auto</option>';
+        for(let s=1;s<=studyCount;s++){
+            const opt = document.createElement('option');
+            opt.value = String(s);
+            opt.textContent = 'Étude ' + s;
+            select.appendChild(opt);
+        }
     });
 }
+refreshStudySelectors(); // initial fill
 
-function refreshForceSelectors(){
-    // handled just by showing up to 5 – nothing to do more
-}
+let lastStudies=[], lastTotal=0, lastMoyenne=0, lastDateText=document.getElementById("date").textContent;
 
-function compute() {
-    const count = parseInt(document.getElementById("studies").value);
-    let groups = [];
-    for(let i=0;i<count;i++){ groups.push({ total:0, list:[] }); }
+function compute(){
+    let classSizes=[], totalEleves=0, studyCount=parseInt(document.getElementById("studies").value);
+    classNames.forEach((name,i)=>{
+        const sizeRaw = document.getElementById("class"+i).value;
+        const size = parseInt(sizeRaw===undefined || sizeRaw==='' ? 0 : sizeRaw, 10) || 0;
+        const forced=document.getElementById("force"+i).value;
+        classSizes.push({name,size,forced});
+        totalEleves+=size;
+    });
 
-    CLASSES.forEach((name,i)=>{
-        const n = parseInt(document.getElementById("nbr"+i).value || 0);
-        if(n<=0) return;
+    if(totalEleves===0){
+        document.getElementById("result").innerHTML = '<em>Pas d\'élèves renseignés.</em>';
+        return;
+    }
 
-        const forced = document.getElementById("force"+i).value;
+    let studies=Array.from({length:studyCount},()=>({total:0,classes:[]}));
 
-        if(forced!=="auto"){
-            const idx = parseInt(forced)-1;
-            groups[idx].total += n;
-            groups[idx].list.push(`${name} (${n})`);
+    // Assign forced classes first (only if size>0)
+    classSizes.forEach(cl=>{
+        if(cl.size > 0 && cl.forced!=="auto"){
+            let idx = parseInt(cl.forced,10)-1;
+            if(idx >=0 && idx < studies.length){
+                studies[idx].total += cl.size;
+                studies[idx].classes.push({name: cl.name, size: cl.size});
+            }
         }
     });
 
-    CLASSES.forEach((name,i)=>{
-        const n = parseInt(document.getElementById("nbr"+i).value || 0);
-        const forced = document.getElementById("force"+i).value;
-        if(n<=0 || forced!=="auto") return;
-
-        let best = groups[0];
-        groups.forEach(g => { if(g.total < best.total) best = g; });
-        best.total += n;
-        best.list.push(`${name} (${n})`);
+    // Automatic distribution for remaining classes (largest first)
+    const freeClasses = classSizes.filter(c=>c.forced==="auto" && c.size>0).sort((a,b)=>b.size - a.size);
+    freeClasses.forEach(cl=>{
+        // find study with smallest total
+        let bestIdx = 0;
+        for(let i=1;i<studies.length;i++){
+            if(studies[i].total < studies[bestIdx].total) bestIdx = i;
+        }
+        studies[bestIdx].total += cl.size;
+        studies[bestIdx].classes.push({name: cl.name, size: cl.size});
     });
 
-    lastStudies = groups;
-    display();
-}
+    const moyenne = totalEleves / studyCount;
+    lastStudies = studies; lastTotal = totalEleves; lastMoyenne = moyenne; lastDateText = document.getElementById("date").textContent;
 
-function display(){
-    const div = document.getElementById("result");
-    let html = "<h3>Résultat :</h3>";
-    lastStudies.forEach((g,i)=>{
-        html += `<p><b>Étude ${i+1} (${g.total}) :</b> ${g.list.join(", ")}</p>`;
+    // Display results: filter empty studies and sort classes by classNames order
+    let html = `<h3>Total élèves : <strong>${totalEleves}</strong></h3>`;
+    html += `<h3>Moyenne : <strong>${moyenne.toFixed(1)}</strong> élèves par étude</h3><br>`;
+    html += `<h3><u>Répartition proposée :</u></h3>`;
+
+    studies.filter(s=>s.total>0).forEach((study,i)=>{
+        let colorClass = "green";
+        const diff = study.total - moyenne;
+        if(diff > 12) colorClass = "red";
+        else if(diff > 5) colorClass = "orange";
+
+        const sortedClasses = study.classes
+            .sort((a,b)=> classNames.indexOf(a.name) - classNames.indexOf(b.name))
+            .map(c=>`${c.name} (${c.size})`);
+
+        html += `<div class="study-block ${colorClass}">
+                    Étude ${i+1} — <strong>${study.total}</strong> élèves<br>
+                    ${sortedClasses.join(", ")}
+                 </div>`;
     });
-    div.innerHTML = html;
+
+    document.getElementById("result").innerHTML = html;
 }
 
 function exportPDF(){
-    compute();
+    if(!lastStudies || lastTotal===0){
+        // if compute wasn't run yet, run it automatically
+        compute();
+    }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    doc.text("Répartition études",10,10);
-    let y=25;
-    lastStudies.forEach((g,i)=>{
-        doc.text(`Étude ${i+1} — ${g.total} élèves`,10,y);
-        y+=6;
-        g.list.forEach(line=>{
-            doc.text(` - ${line}`, 14, y);
-            y+=6;
-        });
-        y+=4;
-    });
-    doc.save("repartition.pdf");
-}
+    let y = 15;
+    doc.setFontSize(18);
+    doc.text("Répartition des études", 10, y); y += 8;
+    doc.setFontSize(11);
+    doc.text(`Date : ${lastDateText}`, 10, y); y += 6;
+    doc.text(`Total élèves : ${lastTotal}`, 10, y); y += 6;
+    doc.text(`Moyenne par étude : ${lastMoyenne.toFixed(1)}`, 10, y); y += 8;
 
-buildTable();
+    lastStudies.filter(study=>study.total>0).forEach((study, i)=>{
+        doc.setFontSize(13);
+        doc.text(`Étude ${i+1} — ${study.total} élèves`, 10, y); y += 6;
+        doc.setFontSize(11);
+        const sorted = study.classes.sort((a,b)=> classNames.indexOf(a.name) - classNames.indexOf(b.name));
+        sorted.forEach(cl=>{
+            doc.text(`• ${cl.name} (${cl.size})`, 12, y); y += 6;
+            if(y > 280){ doc.addPage(); y = 15; }
+        });
+        y += 4;
+    });
+
+    doc.save("repartition_etudes.pdf");
+}
 </script>
 
-<!-- Service worker registration -->
 <script>
-if("serviceWorker" in navigator){
+// Service worker registration (silent, invisible)
+if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js");
 }
 </script>
